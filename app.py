@@ -96,7 +96,7 @@ improvements = st.multiselect(
 custom_improvement = st.text_input("补充其他改进措施（可选）")
 
 # --- 处理逻辑 ---
-def generate_reflection():
+def generate_reflection(container):
     if not api_key:
         st.error("请先在左侧设置 API Key")
         return
@@ -156,12 +156,11 @@ def generate_reflection():
             )
             
             # 流式输出
-            result_container = st.empty()
             full_response = ""
             for chunk in response:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
-                    result_container.markdown(full_response)
+                    container.markdown(full_response)
             
             st.session_state['generated_reflection'] = full_response
             
@@ -170,14 +169,71 @@ def generate_reflection():
 
 # --- 按钮与输出 ---
 st.divider()
-if st.button("✨ 一键生成教学反思", type="primary", use_container_width=True):
-    generate_reflection()
+generate_btn = st.button("✨ 一键生成教学反思", type="primary", use_container_width=True)
 
-# 结果展示区 (如果有历史生成)
+# 创建结果展示区的占位符（避免重复渲染）
+result_title = st.empty()
+result_container = st.empty()
+
+# 逻辑分支
+if generate_btn:
+    result_title.markdown("### 📝 生成结果：")
+    generate_reflection(result_container)
+
+elif 'generated_reflection' in st.session_state:
+    result_title.markdown("### 📝 生成结果：")
+    result_container.write(st.session_state['generated_reflection'])
+
+# 复制按钮（只要有结果就显示）
 if 'generated_reflection' in st.session_state:
-    st.markdown("### 📝 生成结果")
-    st.text_area("您可以直接复制下方内容：", value=st.session_state['generated_reflection'], height=400)
+    content = st.session_state['generated_reflection']
     
-    # 模拟复制功能的提示（Streamlit 限制，很难直接操作剪贴板，text_area 自带复制方便）
-    st.caption("提示：点击右上角的复制图标即可复制全部内容。")
+    # 纯前端实现的复制按钮（避免页面刷新）
+    import streamlit.components.v1 as components
+    import json
+    
+    components.html(
+        f"""
+        <script>
+        function copyText() {{
+            const text = {json.dumps(content)};
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = '✅ 复制成功！';
+            btn.style.borderColor = '#10B981';
+            btn.style.color = '#10B981';
+            
+            setTimeout(() => {{ 
+                btn.innerText = '📋 一键复制全文'; 
+                btn.style.borderColor = '#d1d5db';
+                btn.style.color = '#31333F';
+            }}, 2000);
+        }}
+        </script>
+        <button id="copyBtn" onclick="copyText()" style="
+            cursor: pointer;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-family: 'Source Sans Pro', sans-serif;
+            font-size: 14px;
+            color: #31333F;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">📋 一键复制全文</button>
+        <style>
+            body {{ margin: 0; }}
+        </style>
+        """,
+        height=50
+    )
 
